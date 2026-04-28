@@ -729,6 +729,16 @@ function loadFromStorage() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     if (!Array.isArray(data.innings) || data.innings.length === 0) return false;
+
+    if (data.date && data.date !== todayStr) {
+      const [y, m, d] = data.date.split('-');
+      const label = `${y}/${m}/${d}`;
+      if (!confirm(`前回（${label}）のデータがあります。\n復元しますか？\n\n「キャンセル」を選ぶとデータは削除されます。`)) {
+        localStorage.removeItem('pitchRecorder');
+        return false;
+      }
+    }
+
     state.innings = data.innings;
     state.cur = data.cur ?? 0;
     if (data.date) document.getElementById('date-badge').value = data.date;
