@@ -251,6 +251,19 @@
     transition: opacity 0.1s;
   }
   .btn-primary:active { opacity: 0.8; }
+  .btn-danger {
+    width: 46px;
+    padding: 12px 0;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--ng-border);
+    background: var(--ng-bg);
+    color: var(--ng);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.1s;
+  }
+  .btn-danger:active { opacity: 0.7; }
 
   /* Modal (pitch mark) */
   .modal-overlay {
@@ -418,6 +431,7 @@
 
 <div class="footer-actions">
   <button class="btn-secondary" id="add-inning-btn">＋ 回を追加</button>
+  <button class="btn-danger" id="reset-btn" title="データを初期化">🗑</button>
   <button class="btn-primary" id="export-btn">Output</button>
 </div>
 
@@ -714,6 +728,16 @@ function deleteCurrentInning() {
 
 // Add inning button
 document.getElementById('add-inning-btn').addEventListener('click', () => openPicker('add'));
+
+// Reset
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (!confirm('すべてのデータを初期化しますか？\nこの操作は元に戻せません。')) return;
+  if (!confirm('本当によろしいですか？\n入力済みの投球データがすべて削除されます。')) return;
+  state.innings = [];
+  state.cur = 0;
+  localStorage.removeItem('pitchRecorder');
+  render();
+});
 
 // Output modal
 document.getElementById('export-btn').addEventListener('click', () => {
