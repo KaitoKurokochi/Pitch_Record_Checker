@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pitch Recorder">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Pitch Recorder</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -304,6 +306,24 @@
   }
   .modal-cancel:active { background: var(--border); }
 
+  /* Output modal */
+  .output-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .output-opt {
+    width: 100%; padding: 16px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+    text-align: left;
+  }
+  .output-opt:active { background: var(--border); }
+  .output-opt-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
+  .output-opt-text { display: flex; flex-direction: column; gap: 2px; }
+  .output-opt-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .output-opt-desc  { font-size: 12px; color: var(--text2); }
+
   /* Inning picker modal */
   .picker-title {
     font-size: 15px; font-weight: 600; text-align: center;
@@ -398,7 +418,7 @@
 
 <div class="footer-actions">
   <button class="btn-secondary" id="add-inning-btn">＋ 回を追加</button>
-  <button class="btn-primary" id="export-btn">Excel 出力</button>
+  <button class="btn-primary" id="export-btn">Output</button>
 </div>
 
 <!-- Pitch mark modal -->
@@ -421,6 +441,30 @@
       </div>
     </div>
     <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- Output modal -->
+<div class="modal-overlay" id="output-overlay">
+  <div class="modal-sheet">
+    <div class="modal-title">出力形式を選択</div>
+    <div class="output-options">
+      <button class="output-opt" onclick="doExport('download')">
+        <span class="output-opt-icon">⬇️</span>
+        <span class="output-opt-text">
+          <span class="output-opt-title">ダウンロード</span>
+          <span class="output-opt-desc">Excel ファイルをデバイスに保存</span>
+        </span>
+      </button>
+      <button class="output-opt" onclick="doExport('share')">
+        <span class="output-opt-icon">✉️</span>
+        <span class="output-opt-text">
+          <span class="output-opt-title">メールで送信</span>
+          <span class="output-opt-desc">共有シートからメール・AirDrop など</span>
+        </span>
+      </button>
+    </div>
+    <button class="modal-cancel" onclick="closeOutputModal()">キャンセル</button>
   </div>
 </div>
 
@@ -671,19 +715,23 @@ function deleteCurrentInning() {
 // Add inning button
 document.getElementById('add-inning-btn').addEventListener('click', () => openPicker('add'));
 
-// Excel Export
+// Output modal
 document.getElementById('export-btn').addEventListener('click', () => {
-  const holdCount = state.innings.reduce((sum, inn) =>
-    sum + inn.batters.reduce((s, b) =>
-      s + b.pitches.filter(p => p === 'd').length, 0), 0);
-  if (holdCount > 0) {
-    if (!confirm(`保留（△）が${holdCount}球残っています。\n保留はNG扱いで出力します。よろしいですか？`)) return;
-  }
+  document.getElementById('output-overlay').classList.add('open');
+});
 
+function closeOutputModal() {
+  document.getElementById('output-overlay').classList.remove('open');
+}
+
+document.getElementById('output-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('output-overlay')) closeOutputModal();
+});
+
+function buildWorkbook() {
   const wb = XLSX.utils.book_new();
   const header = ['イニング内投球数', 'イニング内打者数', '打者内投球数', '投手', '動画有無', '動画ナンバー'];
   let clipNum = 1;
-
   state.innings.forEach(inn => {
     const rows = [header];
     let inningPitchNum = 0;
@@ -700,9 +748,50 @@ document.getElementById('export-btn').addEventListener('click', () => {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, inn.id + '回');
   });
+  return wb;
+}
 
-  XLSX.writeFile(wb, 'pitch_record_' + getDateStr() + '.xlsx');
-});
+async function doExport(method) {
+  const holdCount = state.innings.reduce((sum, inn) =>
+    sum + inn.batters.reduce((s, b) =>
+      s + b.pitches.filter(p => p === 'd').length, 0), 0);
+  if (holdCount > 0) {
+    if (!confirm(`保留（△）が${holdCount}球残っています。\n保留はNG扱いで出力します。よろしいですか？`)) return;
+  }
+
+  closeOutputModal();
+  const wb = buildWorkbook();
+  const filename = 'pitch_record_' + getDateStr() + '.xlsx';
+
+  if (method === 'share') {
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const file = new File([buf], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    if (!navigator.share) {
+      alert('このブラウザは共有機能に対応していません。\nダウンロードをお使いください。\n\n※ iOS Safari / Android Chrome で対応しています。');
+      return;
+    }
+    if (!navigator.canShare({ files: [file] })) {
+      alert('ファイル共有がこの環境では使えません。\nHTTPサーバー経由（http://）でアクセスしているか確認してください。');
+      return;
+    }
+    try {
+      await navigator.share({ files: [file], title: 'Pitch Record' });
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // ユーザーがキャンセル
+      alert('共有に失敗しました: ' + e.message);
+      return;
+    }
+  }
+  // download
+  XLSX.writeFile(wb, filename);
+}
+
+// ── Service Worker 登録 ──────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 // ── 離脱警告 ──────────────────────────────────────────
 window.addEventListener('beforeunload', e => {
