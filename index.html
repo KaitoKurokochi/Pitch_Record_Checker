@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="録画記録">
+<title>録画記録</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b64;
+    --text3: #a0a09a;
+    --ok: #2d7a3a;
+    --ok-bg: #e8f5eb;
+    --ok-border: #7bc88a;
+    --ng: #c0392b;
+    --ng-bg: #fdecea;
+    --ng-border: #e88a83;
+    --blue: #185fa5;
+    --blue-light: #e6f1fb;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Header */
+  .app-header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 14px 16px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .app-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .date-badge {
+    font-size: 13px;
+    color: var(--text2);
+    background: var(--surface2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 0.5px solid var(--border);
+  }
+
+  /* Stats */
+  .stats-row {
+    display: flex;
+    gap: 8px;
+  }
+  .stat-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    border: 0.5px solid var(--border);
+  }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stat-dot.ok { background: var(--ok); }
+  .stat-dot.ng { background: var(--ng); }
+  .stat-dot.em { background: var(--text3); }
+  .stat-label { font-size: 11px; color: var(--text2); }
+  .stat-val { font-size: 15px; font-weight: 600; margin-left: auto; }
+  .stat-val.ok { color: var(--ok); }
+  .stat-val.ng { color: var(--ng); }
+
+  /* Inning tabs */
+  .inning-bar {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 16px;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .inning-bar::-webkit-scrollbar { display: none; }
+  .inn-tab {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .inn-tab.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+  }
+
+  /* Content */
+  .content { padding: 12px 14px; }
+
+  /* Batter card */
+  .batter-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .batter-card-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 0.5px solid var(--border);
+    gap: 8px;
+  }
+  .batter-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .batter-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .batter-summary { font-size: 12px; color: var(--text2); }
+
+  .pitches-area { padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+
+  .pitch-cell {
+    width: 44px; height: 52px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s;
+    position: relative;
+    gap: 2px;
+  }
+  .pitch-cell:active { transform: scale(0.91); }
+  .pitch-cell.ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .pitch-cell.ng { background: var(--ng-bg); border-color: var(--ng-border); }
+
+  .pitch-idx { font-size: 10px; color: var(--text3); line-height: 1; }
+  .pitch-cell.ok .pitch-idx { color: #5a9e65; }
+  .pitch-cell.ng .pitch-idx { color: #c97a75; }
+  .pitch-mark { font-size: 20px; line-height: 1; }
+  .pitch-cell.ok .pitch-mark { color: var(--ok); }
+  .pitch-cell.ng .pitch-mark { color: var(--ng); }
+  .pitch-cell.empty .pitch-mark { color: var(--text3); font-size: 14px; }
+
+  .add-pitch-cell {
+    width: 44px; height: 52px;
+    border-radius: 8px;
+    border: 1px dashed var(--border2);
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 20px;
+    transition: all 0.1s;
+  }
+  .add-pitch-cell:active { background: var(--surface2); }
+
+  /* Add batter */
+  .add-batter-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background 0.1s;
+  }
+  .add-batter-btn:active { background: var(--surface); }
+
+  /* Footer actions */
+  .footer-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-top: 0.5px solid var(--border);
+    position: sticky;
+    bottom: 0;
+  }
+  .btn-secondary {
+    flex: 1;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn-secondary:active { background: var(--surface2); }
+  .btn-primary {
+    flex: 1;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--blue);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .btn-primary:active { opacity: 0.8; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 200;
+    align-items: flex-end;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    width: 100%;
+    animation: slideUp 0.22s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-title {
+    font-size: 15px; font-weight: 600; text-align: center; margin-bottom: 18px;
+    color: var(--text);
+  }
+  .modal-subtitle { font-size: 13px; color: var(--text2); text-align: center; margin-top: -14px; margin-bottom: 18px; }
+  .modal-options { display: flex; gap: 10px; margin-bottom: 14px; }
+  .modal-opt {
+    flex: 1; padding: 16px 8px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .modal-opt:active { transform: scale(0.96); }
+  .modal-opt.opt-ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .modal-opt.opt-ng { background: var(--ng-bg); border-color: var(--ng-border); }
+  .modal-opt-icon { font-size: 28px; line-height: 1; }
+  .modal-opt.opt-ok .modal-opt-icon { color: var(--ok); }
+  .modal-opt.opt-ng .modal-opt-icon { color: var(--ng); }
+  .modal-opt-label { font-size: 12px; font-weight: 500; color: var(--text2); }
+  .modal-opt.opt-ok .modal-opt-label { color: var(--ok); }
+  .modal-opt.opt-ng .modal-opt-label { color: var(--ng); }
+  .modal-cancel {
+    width: 100%; padding: 13px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 14px; cursor: pointer;
+  }
+  .modal-cancel:active { background: var(--border); }
+
+  /* Delete batter */
+  .batter-delete {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text3);
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-top">
+    <span class="app-title">📹 録画記録</span>
+    <span class="date-badge" id="date-badge"></span>
+  </div>
+  <div class="stats-row">
+    <div class="stat-pill">
+      <div class="stat-dot ok"></div>
+      <span class="stat-label">録画OK</span>
+      <span class="stat-val ok" id="stat-ok">0</span>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-dot ng"></div>
+      <span class="stat-label">録画NG</span>
+      <span class="stat-val ng" id="stat-ng">0</span>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-dot em"></div>
+      <span class="stat-label">未記録</span>
+      <span class="stat-val" id="stat-em">0</span>
+    </div>
+  </div>
+</div>
+
+<div class="inning-bar" id="inning-bar"></div>
+
+<div class="content" id="content"></div>
+
+<div class="footer-actions">
+  <button class="btn-secondary" id="add-inning-btn">＋ 回を追加</button>
+  <button class="btn-primary" id="export-btn">CSV 出力</button>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-subtitle" id="modal-subtitle"></div>
+    <div class="modal-options">
+      <div class="modal-opt opt-ok" onclick="setMark('o')">
+        <span class="modal-opt-icon">○</span>
+        <span class="modal-opt-label">録画OK</span>
+      </div>
+      <div class="modal-opt opt-ng" onclick="setMark('x')">
+        <span class="modal-opt-icon">×</span>
+        <span class="modal-opt-label">録画NG</span>
+      </div>
+      <div class="modal-opt" onclick="setMark('')">
+        <span class="modal-opt-icon" style="color:var(--text3)">—</span>
+        <span class="modal-opt-label">未記録</span>
+      </div>
+    </div>
+    <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// Date
+const now = new Date();
+const mm = String(now.getMonth()+1).padStart(2,'0');
+const dd = String(now.getDate()).padStart(2,'0');
+const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+document.getElementById('date-badge').textContent = now.getFullYear() + '/' + mm + '/' + dd;
+
+// State
+let state = {
+  innings: [
+    { id: 1, batters: [{ id: 1, pitches: ['','','','','','',''] }] }
+  ],
+  cur: 0
+};
+
+let modalTarget = null;
+
+// Render
+function render() {
+  renderTabs();
+  renderContent();
+  updateStats();
+}
+
+function renderTabs() {
+  const bar = document.getElementById('inning-bar');
+  bar.innerHTML = '';
+  state.innings.forEach((inn, i) => {
+    const tab = document.createElement('button');
+    tab.className = 'inn-tab' + (i === state.cur ? ' active' : '');
+    tab.textContent = inn.id + '回';
+    tab.onclick = () => { state.cur = i; render(); };
+    bar.appendChild(tab);
+  });
+}
+
+function renderContent() {
+  const area = document.getElementById('content');
+  area.innerHTML = '';
+  const inn = state.innings[state.cur];
+
+  inn.batters.forEach((batter, bi) => {
+    const ok = batter.pitches.filter(p => p==='o').length;
+    const ng = batter.pitches.filter(p => p==='x').length;
+    const total = batter.pitches.length;
+
+    const card = document.createElement('div');
+    card.className = 'batter-card';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'batter-card-header';
+    hdr.innerHTML = `
+      <div class="batter-num">${batter.id}</div>
+      <span class="batter-name">${batter.id}番打者</span>
+      <span class="batter-summary">○${ok} ×${ng} / ${total}球</span>
+      <div class="batter-delete" onclick="deleteBatter(${bi})">✕</div>
+    `;
+    card.appendChild(hdr);
+
+    // Pitches
+    const pitchArea = document.createElement('div');
+    pitchArea.className = 'pitches-area';
+
+    batter.pitches.forEach((p, pi) => {
+      const cell = document.createElement('div');
+      cell.className = 'pitch-cell ' + (p==='o' ? 'ok' : p==='x' ? 'ng' : 'empty');
+      cell.innerHTML = `<span class="pitch-idx">${pi+1}球</span><span class="pitch-mark">${p==='o' ? '○' : p==='x' ? '×' : '・'}</span>`;
+      cell.onclick = () => openModal(state.cur, bi, pi);
+      pitchArea.appendChild(cell);
+    });
+
+    // Add pitch button
+    const addPitch = document.createElement('div');
+    addPitch.className = 'add-pitch-cell';
+    addPitch.textContent = '+';
+    addPitch.onclick = () => {
+      state.innings[state.cur].batters[bi].pitches.push('');
+      render();
+    };
+    pitchArea.appendChild(addPitch);
+
+    card.appendChild(pitchArea);
+    area.appendChild(card);
+  });
+
+  // Add batter button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-batter-btn';
+  const nextId = inn.batters.length > 0 ? inn.batters[inn.batters.length-1].id + 1 : 1;
+  addBtn.innerHTML = '<span style="font-size:18px">＋</span> ' + nextId + '番打者を追加';
+  addBtn.onclick = () => {
+    inn.batters.push({ id: nextId, pitches: ['','','','','','',''] });
+    render();
+  };
+  area.appendChild(addBtn);
+}
+
+function updateStats() {
+  let ok=0, ng=0, em=0;
+  state.innings.forEach(inn => inn.batters.forEach(b => b.pitches.forEach(p => {
+    if (p==='o') ok++;
+    else if (p==='x') ng++;
+    else em++;
+  })));
+  document.getElementById('stat-ok').textContent = ok;
+  document.getElementById('stat-ng').textContent = ng;
+  document.getElementById('stat-em').textContent = em;
+}
+
+function deleteBatter(bi) {
+  const inn = state.innings[state.cur];
+  if (inn.batters.length <= 1) { alert('最低1人は必要です'); return; }
+  if (confirm('この打者を削除しますか？')) {
+    inn.batters.splice(bi, 1);
+    render();
+  }
+}
+
+// Modal
+function openModal(ii, bi, pi) {
+  modalTarget = { ii, bi, pi };
+  const inn = state.innings[ii];
+  const b = inn.batters[bi];
+  document.getElementById('modal-title').textContent = inn.id + '回 · ' + b.id + '番打者';
+  document.getElementById('modal-subtitle').textContent = (pi+1) + '球目';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function setMark(val) {
+  if (!modalTarget) return;
+  const { ii, bi, pi } = modalTarget;
+  state.innings[ii].batters[bi].pitches[pi] = val;
+  closeModal();
+  render();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  modalTarget = null;
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// Add inning
+document.getElementById('add-inning-btn').addEventListener('click', () => {
+  const nextId = state.innings.length + 1;
+  state.innings.push({ id: nextId, batters: [{ id: 1, pitches: ['','','','','','',''] }] });
+  state.cur = state.innings.length - 1;
+  render();
+  document.getElementById('inning-bar').lastChild.scrollIntoView({ behavior: 'smooth', inline: 'nearest' });
+});
+
+// CSV Export
+document.getElementById('export-btn').addEventListener('click', () => {
+  let csv = '\uFEFF日付,回,打者番号,球番号,記録\n';
+  state.innings.forEach(inn => {
+    inn.batters.forEach(b => {
+      b.pitches.forEach((p, pi) => {
+        const mark = p==='o' ? '録画OK' : p==='x' ? '録画NG' : '未記録';
+        csv += `${dateStr},${inn.id},${b.id},${pi+1},${mark}\n`;
+      });
+    });
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pitch_record_' + dateStr + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+render();
+</script>
+</body>
+</html>
