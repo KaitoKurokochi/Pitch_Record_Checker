@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="録画記録">
 <title>録画記録</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #f5f4f0;
@@ -62,6 +63,9 @@
     padding: 4px 10px;
     border-radius: 20px;
     border: 0.5px solid var(--border);
+    outline: none;
+    font-family: inherit;
+    cursor: pointer;
   }
 
   /* Stats */
@@ -312,7 +316,7 @@
 <div class="app-header">
   <div class="header-top">
     <span class="app-title">📹 録画記録</span>
-    <span class="date-badge" id="date-badge"></span>
+    <input type="date" class="date-badge" id="date-badge">
   </div>
   <div class="stats-row">
     <div class="stat-pill">
@@ -339,7 +343,7 @@
 
 <div class="footer-actions">
   <button class="btn-secondary" id="add-inning-btn">＋ 回を追加</button>
-  <button class="btn-primary" id="export-btn">CSV 出力</button>
+  <button class="btn-primary" id="export-btn">Excel 出力</button>
 </div>
 
 <!-- Modal -->
@@ -368,10 +372,12 @@
 <script>
 // Date
 const now = new Date();
-const mm = String(now.getMonth()+1).padStart(2,'0');
-const dd = String(now.getDate()).padStart(2,'0');
-const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
-document.getElementById('date-badge').textContent = now.getFullYear() + '/' + mm + '/' + dd;
+const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+document.getElementById('date-badge').value = todayStr;
+
+function getDateStr() {
+  return document.getElementById('date-badge').value.replace(/-/g, '');
+}
 
 // State
 let state = {
@@ -521,26 +527,31 @@ document.getElementById('add-inning-btn').addEventListener('click', () => {
   document.getElementById('inning-bar').lastChild.scrollIntoView({ behavior: 'smooth', inline: 'nearest' });
 });
 
-// CSV Export
+// Excel Export
 document.getElementById('export-btn').addEventListener('click', () => {
-  let csv = '\uFEFF日付,回,打者番号,球番号,記録\n';
+  const wb = XLSX.utils.book_new();
+  const header = ['イニング内投球数', 'イニング内打者数', '打者内投球数', '投手', '動画有無', '動画ナンバー'];
+  let clipNum = 1;
+
   state.innings.forEach(inn => {
-    inn.batters.forEach(b => {
+    const rows = [header];
+    let inningPitchNum = 0;
+
+    inn.batters.forEach((b, bi) => {
       b.pitches.forEach((p, pi) => {
-        const mark = p==='o' ? '録画OK' : p==='x' ? '録画NG' : '未記録';
-        csv += `${dateStr},${inn.id},${b.id},${pi+1},${mark}\n`;
+        inningPitchNum++;
+        const hasVideo = p === 'o' ? '○' : p === 'x' ? '×' : '未記録';
+        const clipName = 'C' + String(clipNum).padStart(4, '0') + '.MP4';
+        clipNum++;
+        rows.push([inningPitchNum, bi + 1, pi + 1, '', hasVideo, clipName]);
       });
     });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, inn.id + '回');
   });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'pitch_record_' + dateStr + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+
+  XLSX.writeFile(wb, 'pitch_record_' + getDateStr() + '.xlsx');
 });
 
 render();
