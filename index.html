@@ -454,7 +454,7 @@
         <span class="modal-opt-label">保留</span>
       </div>
     </div>
-    <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+    <button class="modal-cancel" onclick="setMark('')">取り消し</button>
   </div>
 </div>
 
@@ -764,7 +764,7 @@ function buildWorkbook() {
         if (p !== 'o' && p !== 'x' && p !== 'd') return;
         inningPitchNum++;
         const hasVideo = p === 'o' ? 1 : '';
-        const clipName = p === 'o' ? 'C' + String(clipNum).padStart(4, '0') + '.MP4' : '';
+        const clipName = p === 'o' ? 'C' + String(clipNum).padStart(4, '0') : '';
         if (p === 'o') clipNum++;
         rows.push([inningPitchNum, bi + 1, pi + 1, '', hasVideo, clipName]);
       });
