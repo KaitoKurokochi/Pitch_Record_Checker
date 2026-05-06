@@ -377,6 +377,55 @@
     border-color: var(--blue);
     font-weight: 700;
   }
+  .picker-other {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    font-size: 12px; font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.1s;
+  }
+  .picker-other:active { transform: scale(0.93); }
+  .picker-other.current {
+    background: var(--blue-light);
+    color: var(--blue);
+    border-color: var(--blue);
+    font-weight: 700;
+  }
+  .picker-custom-area {
+    display: none;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .picker-custom-area.open { display: flex; }
+  .picker-custom-input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--surface2);
+    font-size: 16px;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    -webkit-appearance: none;
+  }
+  .picker-custom-input:focus { border-color: var(--blue); }
+  .picker-custom-confirm {
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--blue);
+    color: #fff;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .picker-custom-confirm:active { opacity: 0.8; }
   .picker-delete-btn {
     width: 100%; padding: 13px;
     border-radius: var(--radius);
@@ -488,6 +537,10 @@
     <div class="picker-title" id="picker-title">イニングを選択</div>
     <div class="picker-hint" id="picker-hint">追加する回を選んでください</div>
     <div class="picker-grid" id="picker-grid"></div>
+    <div class="picker-custom-area" id="picker-custom-area">
+      <input type="number" class="picker-custom-input" id="picker-custom-input" min="1" max="99" placeholder="回数を入力（例: 10）">
+      <button class="picker-custom-confirm" onclick="confirmCustomInning()">確定</button>
+    </div>
     <button class="picker-delete-btn" id="picker-delete-btn" onclick="deleteCurrentInning()">このイニングを削除</button>
     <button class="modal-cancel" onclick="closePicker()">キャンセル</button>
   </div>
@@ -675,13 +728,13 @@ function openPicker(mode) {
 
   const grid = document.getElementById('picker-grid');
   grid.innerHTML = '';
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 9; n++) {
     const btn = document.createElement('button');
     btn.className = 'picker-num';
     btn.textContent = n;
     if (n === currentId) {
       btn.classList.add('current');
-      btn.onclick = closePicker; // re-tap current → just close
+      btn.onclick = closePicker;
     } else if (usedIds.includes(n)) {
       btn.classList.add('used');
     } else {
@@ -690,11 +743,43 @@ function openPicker(mode) {
     grid.appendChild(btn);
   }
 
+  // 「その他」ボタン
+  const otherBtn = document.createElement('button');
+  otherBtn.className = 'picker-other';
+  otherBtn.textContent = 'その他';
+  const customArea = document.getElementById('picker-custom-area');
+  const customInput = document.getElementById('picker-custom-input');
+  customArea.classList.remove('open');
+  customInput.value = '';
+  if (isEdit && currentId > 9) {
+    otherBtn.classList.add('current');
+    customInput.value = currentId;
+    customArea.classList.add('open');
+    otherBtn.onclick = closePicker;
+  } else {
+    otherBtn.onclick = () => {
+      customArea.classList.add('open');
+      customInput.focus();
+    };
+  }
+  grid.appendChild(otherBtn);
+
   document.getElementById('picker-overlay').classList.add('open');
 }
 
 function closePicker() {
   document.getElementById('picker-overlay').classList.remove('open');
+}
+
+function confirmCustomInning() {
+  const val = parseInt(document.getElementById('picker-custom-input').value, 10);
+  if (!val || val < 1 || val > 99) { alert('1〜99の数字を入力してください'); return; }
+  const isEdit = pickerMode === 'edit';
+  const usedIds = state.innings.map(inn => inn.id);
+  const currentId = isEdit && state.innings.length > 0 ? state.innings[state.cur].id : -1;
+  if (val !== currentId && usedIds.includes(val)) { alert(`${val}回はすでに追加されています`); return; }
+  isEdit ? changeInningId(val) : addInning(val);
+  closePicker();
 }
 
 document.getElementById('picker-overlay').addEventListener('click', e => {
