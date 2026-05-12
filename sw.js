@@ -1,5 +1,5 @@
-const CACHE = 'pitch-recorder-v1';
-const FILES = ['./index.html', './manifest.json', './icon.svg'];
+const CACHE = 'pitch-recorder-v2';
+const FILES = ['./index.html', './manifest.json', './icon.svg', './xlsx.full.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
