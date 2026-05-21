@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor / IDE
+.vscode/
+.idea/
